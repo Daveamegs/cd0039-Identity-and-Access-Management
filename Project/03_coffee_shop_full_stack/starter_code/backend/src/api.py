@@ -17,7 +17,7 @@ CORS(app)
 !! NOTE THIS MUST BE UNCOMMENTED ON FIRST RUN
 !! Running this funciton will add one
 '''
-# db_drop_and_create_all()
+db_drop_and_create_all()
 
 # ROUTES
 '''
@@ -30,6 +30,23 @@ CORS(app)
 '''
 
 
+@app.route("/drinks", methods=["GET"])
+def get_drinks():
+    try:
+        drinks = Drink.query.all()
+
+        if len(drinks) == 0:
+            abort(404)
+
+    except:
+        abort(404)
+
+    return jsonify({
+        "success": True,
+        "drinks": [drink.short() for drink in drinks]
+    })
+
+
 '''
 @TODO implement endpoint
     GET /drinks-detail
@@ -38,6 +55,24 @@ CORS(app)
     returns status code 200 and json {"success": True, "drinks": drinks} where drinks is the list of drinks
         or appropriate status code indicating reason for failure
 '''
+
+
+@app.route("/drinks-detail", methods=["GET"])
+@requires_auth("get:drinks-detail")
+def get_drinks_detail(jwt):
+    try:
+        drinks = Drink.query.all()
+
+        if len(drinks) == 0:
+            abort(404)
+
+        return jsonify({
+            "success": True,
+            "drinks": [drink.long() for drink in drinks]
+        })
+
+    except:
+        abort(404)
 
 
 '''
@@ -49,6 +84,30 @@ CORS(app)
     returns status code 200 and json {"success": True, "drinks": drink} where drink an array containing only the newly created drink
         or appropriate status code indicating reason for failure
 '''
+
+
+@app.route("/drinks", methods=["POST"])
+@requires_auth("post:drinks")
+def create_drink(jwt):
+    body = request.get_json()
+    try:
+        drink_title = body.get("title", None)
+        drink_recipe = body.get("recipe", None)
+
+        drink = Drink(
+            title=drink_title,
+            recipe=json.dumps(drink_recipe)
+        )
+
+        drink.insert()
+
+    except:
+        abort(422)
+
+    return jsonify({
+        "success": True,
+        "drinks": [drink.long()]
+    })
 
 
 '''
@@ -64,6 +123,34 @@ CORS(app)
 '''
 
 
+@app.route("/drinks/<int:id>", methods=["PATCH"])
+@requires_auth("patch:drinks")
+def edit_drink(jwt, id):
+    body = request.get_json()
+
+    try:
+        drink = Drink.query.filter(Drink.id == id).one_or_none()
+
+        if drink is None:
+            abort(404)
+
+        if "title" in body:
+            drink.title = body["title"]
+
+        if "recipe" in body:
+            drink.recipe = body["recipe"]
+
+        drink.update()
+
+    except:
+        abort(422)
+
+    return jsonify({
+        "success": True,
+        "drinks": [drink.long()]
+    })
+
+
 '''
 @TODO implement endpoint
     DELETE /drinks/<id>
@@ -74,6 +161,26 @@ CORS(app)
     returns status code 200 and json {"success": True, "delete": id} where id is the id of the deleted record
         or appropriate status code indicating reason for failure
 '''
+
+
+@app.route("/drinks/<int:id>", methods=["DELETE"])
+@requires_auth("delete:drinks")
+def delete_drink(jwt, id):
+    try:
+        drink = Drink.query.filter(Drink.id == id).one_or_none()
+
+        if drink is None:
+            abort(404)
+
+        drink.delete()
+
+    except:
+        abort(422)
+
+    return jsonify({
+        "success": True,
+        "delete": id
+    })
 
 
 # Error Handling
@@ -102,13 +209,41 @@ def unprocessable(error):
 
 '''
 
+
+@app.errorhandler(403)
+def access_forbidden(error):
+    return jsonify({
+        "success": False,
+        "message": "Forbidden",
+        "error": 403
+    }), 403
+
+
 '''
 @TODO implement error handler for 404
     error handler should conform to general task above
 '''
 
 
+@app.errorhandler(404)
+def resource_not_found(error):
+    return jsonify({
+        "success": False,
+        "message": "Requested Resource Not Found",
+        "error": 404
+    }), 404
+
+
 '''
 @TODO implement error handler for AuthError
     error handler should conform to general task above
 '''
+
+
+@app.errorhandler(AuthError)
+def auth_error(error):
+    return jsonify({
+        "success": False,
+        "message": error.error["description"],
+        "error": error.status_code
+    }), error.status_code
