@@ -1,5 +1,4 @@
 import json
-from os import abort
 from flask import request, _request_ctx_stack
 from functools import wraps
 from jose import jwt
@@ -87,7 +86,7 @@ def check_permissions(permission, payload):
         raise AuthError({
             "code": "invalid_claims",
             "description": "Permissions not included in JWT."
-        }, 403)
+        }, 400)
 
     if permission not in payload["permissions"]:
         raise AuthError({

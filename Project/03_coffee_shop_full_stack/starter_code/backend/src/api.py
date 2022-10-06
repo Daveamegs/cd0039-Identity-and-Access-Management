@@ -66,13 +66,13 @@ def get_drinks_detail(jwt):
         if len(drinks) == 0:
             abort(404)
 
-        return jsonify({
-            "success": True,
-            "drinks": [drink.long() for drink in drinks]
-        })
-
     except:
         abort(404)
+
+    return jsonify({
+        "success": True,
+        "drinks": [drink.long() for drink in drinks]
+    })
 
 
 '''
@@ -241,9 +241,7 @@ def resource_not_found(error):
 
 
 @app.errorhandler(AuthError)
-def auth_error(error):
-    return jsonify({
-        "success": False,
-        "message": error.error["description"],
-        "error": error.status_code
-    }), error.status_code
+def auth_error(ex):
+    response = jsonify(ex.error)
+    response.status_code = ex.status_code
+    return response
